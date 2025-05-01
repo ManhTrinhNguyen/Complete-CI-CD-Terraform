@@ -1,0 +1,25 @@
+architecture: replication
+
+auth:
+  rootPassword: rootpassword  # ✅ use a Kubernetes Secret in real deployments
+  database: my-app-db
+  username: tim
+  password: mypassword     # ✅ use a Kubernetes Secret in real deployments
+
+volumePermissions:
+  enabled: true  # ✅ Keep this enabled to ensure volume permissions are correct
+
+primary:
+  persistence:
+    enabled: true
+    storageClass: gp2                     # ✅ Use AWS EBS gp2 or gp3
+    accessModes: ["ReadWriteOnce"]
+    size: 20Gi                            # ✅ Adjust as per data needs
+
+secondary:
+  replicaCount: 2
+  persistence:
+    enabled: true
+    storageClass: gp2
+    accessModes: ["ReadWriteOnce"]
+    size: 20Gi
