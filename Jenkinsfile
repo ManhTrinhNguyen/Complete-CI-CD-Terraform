@@ -76,6 +76,32 @@ pipeline {
           }
         }
 
+        stage("Provision Server"){
+          environment{
+            AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
+            AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
+            TF_VAR_env_prefix = "test"
+          }
+
+          steps{
+            script {
+              dir('terraform') {
+                sh 'terraform init'
+                sh 'terraform apply --auto-approve'
+
+                // Capture the EC2 public IP output from Terraform
+                def ec2_public_ip = EC2_PUBLIC_IP = sh(
+                script: "terraform output ec2_public_ip",
+                returnStdout: true 
+                ).trim() 
+
+                // Set environment variable for use in later stages if needed
+                env.EC2_PUBLIC_IP = ec2_public_ip
+              }
+            }
+          }
+        }
+
         stage("Deploy with Kubernetes") {
           environment{
             AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
