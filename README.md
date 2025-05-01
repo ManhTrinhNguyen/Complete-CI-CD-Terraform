@@ -81,6 +81,12 @@
   - [Overview-Provsion-Terraform-in-CI/CD-Pipelines](#Overview-Provsion-Terraform-in-CI/CD-Pipelines)
  
   - [Create SSH key-pair](#Create-SSH-key-pair)
+ 
+  - [Install Terraform inside Jenkins Container](#Install-Terraform-inside-Jenkins-Container)
+ 
+  - [Provision Stage In Jenkinsfile](#Provision-Stage-In-Jenkinsfile)
+ 
+  - [Deploy Stage in Jenkinsfile](#Deploy-Stage-in-Jenkinsfile)
 
   
 # AWS-EKS 
@@ -1283,14 +1289,103 @@ I will create a new `stage("provision server")` in Jenkinsfile . And this will b
 
 #### Create SSH key-pair
 
+I will create a key pair inside AWS and then give it to Jenkins instead of creating from Terraform
 
+Go to AWS - EC2 -> Create key pair `.pem`
 
+After that I need to give that PEM file to Jenkins . Inside Multi Branch Pipeline credentials I will create a new Credential and this is going to be SSH credential .
 
+ - ID : `server-ssh-key`
 
+ - Username: is the username that will be logging into the Server with SSH . On EC2 Instance the user I get out of the box is `ec2-user`
 
+ - Private key : paste the content from `.pem` file
 
+#### Install Terraform inside Jenkins Container
 
+SSH into my Droplet and then go inside Jenkins container and we are going to install Terraform inside the Container
 
+SSH to Droplet Server : `ssh root@<Ip-address>`
 
+Go inside the container : `dockcer exec -it -u 0 <container-id> bash`
+
+On Hashicorp Download I can see installation for different OS (https://developer.hashicorp.com/terraform/downloads) .
+
+Check what OS that I have `cat /etc/os-release` .
+
+```
+wget -O - https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
+
+apt update && apt install terraform
+```
+
+#### Provision Stage In Jenkinsfile
+
+Inside `stage("provision server"){ steps { script {}}}` I will execute Terraform command
+
+However Terraform configuration files are inside Terraform directory so I need execute `terraform init` and `terraform apply` from that directory . To do that I use `dir('terraform') {}` provide the folder name or relative path . Then I can execute Terraform command in that block
+
+For `terraform apply` to work , Terraform and Jenkins Server basically needs to authenticate with AWS bcs I am creating resources inside AWS account, and obviously, AWS will need some kine of authentication to allow Terraform and Jenkins server to create those resources inside the AWS account in that Region
+
+In the `provider "aws" {}` I can give `access_key` and `access_secret_key`. I can hardode it in the Provider but the Best Pratice is to set them as an ENV . So basically I need to set ENV in the stage for Terraform so that AWS provider can grab those ENV and connect to the AWS . Above `steps {}` I will provide `environment {}`
+
+Let's say I want to set the environment to test. By default I have defined it to be `dev` . However from CI/CD pipeline I want to define which environment I am deploying to . Let's say this CI/CD Pipeline is for `test` environment . To override or set a value of a variable inside Terraform Configuration from Jenkinfile is using `TF_VAR_name` . Using `TF_VAR_name` I can override and set all the rest of variables as well
+
+```
+stage("Provision Server"){
+  environment{
+    AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
+    AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
+    TF_VAR_env_prefix = "test"
+  }
+
+  steps{
+    script {
+      dir('terraform') {
+        sh 'terraform init'
+        sh 'terraform apply --auto-approve'
+      }
+    }
+  }
+}
+```
+
+#### Deploy Stage in Jenkinsfile
+
+Bcs I create provisoning Server from Terraform I don't know what IP Address is going to be here, I need the right Public IP once Terraform create the Instance .
+
+To reference the Attribute of Terraform resource from Jenkinsfile . And to get access to AWS instance Public IP . I can use `output {}` command in order to get a value . Right in the `stage ("provision server")` I will use `terraform output <name-of-output>` . However I need to save the result of the output command so I can use it in the next stage . I can do that by assigning the result of sh command to an `ENV` in Jenkins `EC2_PUBLIC_IP = sh "terraform output ec2_public_ip"` . However for that to work I need to add a parameter here inside the shell script execution and set `returnStdout: true` . What this does is basically it prints out the value to the standard output, so I can save it into a variable . I can also `trim()` that value if there are any spaces before or after
+
+If I need othet Attribute as well I can easily define them in `output` section I can give it any value that I want and I can access them
+
+```
+stage("Provision Server"){
+  environment{
+    AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
+    AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
+    TF_VAR_env_prefix = "test"
+  }
+
+  steps{
+    script {
+      dir('terraform') {
+        sh 'terraform init'
+        sh 'terraform apply --auto-approve'
+
+        // Capture the EC2 public IP output from Terraform
+        def ec2_public_ip = EC2_PUBLIC_IP = sh(
+        script: "terraform output ec2_public_ip",
+        returnStdout: true 
+        ).trim() 
+
+        // Set environment variable for use in later stages if needed
+        env.EC2_PUBLIC_IP = ec2_public_ip
+      }
+    }
+  }
+}
+```
 
 
