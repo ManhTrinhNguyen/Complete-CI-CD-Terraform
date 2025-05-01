@@ -59,6 +59,16 @@
     - [Create Deployment Stage in Jenkinsfile](#Create-Deployment-Stage-in-Jenkinsfile)
 
 - [Configure Autoscaling for EKS Cluster](#Configure-Autoscaling-for-EKS-Cluster)
+
+  - [Create custom Autoscaler Policy for my NodeGroup](#Create-custom-Autoscaler-Policy-for-my-NodeGroup)
+ 
+  - [Create OIDC Provider](#Create-OIDC-Provider)
+ 
+  - [Create an IAM role for your service accounts in the console](#Create-an-IAM-role-for-your-service-accounts-in-the-console)
+ 
+  - [Configure Tags on Autoscaling Group . Automate created by AWS](#Configure-Tags-on-Autoscaling-Group-Automate-created-by-AWS)
+ 
+  - [Deploy Cluster Autoscaler](#Deploy-Cluster-Autoscaler)
   
 # AWS-EKS 
 
@@ -914,6 +924,140 @@ stage("Deploy with Kubernetes") {
 ```
 
 ## Configure Autoscaling for EKS Cluster
+
+Thing I need in order to create Auto Scaler 
+
+ - I need Auto Scaling Group (Can change Min and Max anytime)
+
+ - I need to Create Auto Scaler Policy
+
+ - Then create Auto Scaler Role
+
+ - Then I use OpenID Provider OIDC federated authentication allow my service to assume an IAM role and interact with AWS Service without have to store AWS_ACCESS_KEY and AWS_ACCESS_SECRET_KEY
+
+ - This I will attach that to Service Account
+
+This is my Auto Scaler Yaml files include : Service Account, Role, ClusterRoleBinding, RoleBinding and Deployment (https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml) 
+
+#### Create custom Autoscaler Policy for my NodeGroup
+
+In IAM -> go to Policy -> go to Create Policy -> Choose JSON then paste the custom list of Policy in there -> Then give it a name and create it
+
+Custome list is the one that has a list of all the Permissions that we need to give NodeGroup IAM role for the autoscaling to work
+
+After Policy created . Create OIDC for authentication
+
+```
+{
+ "Version": "2012-10-17",
+ "Statement": [
+     {
+         "Effect": "Allow",
+         "Action": [
+             "autoscaling:DescribeAutoScalingGroups",
+             "autoscaling:DescribeAutoScalingInstances",
+             "autoscaling:DescribeLaunchConfigurations",
+             "autoscaling:DescribeScalingActivities",
+             "ec2:DescribeImages",
+             "ec2:DescribeInstanceTypes",
+             "ec2:DescribeLaunchTemplateVersions",
+             "ec2:GetInstanceTypesFromInstanceRequirements",
+             "eks:DescribeNodegroup"
+         ],
+         "Resource": [
+             "*"
+         ]
+     },
+     {
+         "Effect": "Allow",
+         "Action": [
+             "autoscaling:SetDesiredCapacity",
+             "autoscaling:TerminateInstanceInAutoScalingGroup"
+         ],
+         "Resource": [
+             "*"
+         ]
+     }
+ ]
+}
+```
+
+#### Create OIDC Provider
+
+**Prerequisites:**
+
+An Active EKS cluster (1.14 preferred since it is the latest) against which the user is able to run kubectl commands.
+
+Cluster must consist of at least one worker node ASG.
+
+**Create an IAM OIDC identity provider for your cluster with the AWS Management Console**
+
+Open the Amazon EKS console.
+
+In the left pane, select Clusters, and then select the name of your cluster on the Clusters page.
+
+In the Details section on the Overview tab, note the value of the OpenID Connect provider URL.
+
+Open the IAM console at `https://console.aws.amazon.com/iam/`.
+
+In the left navigation pane, choose Identity Providers under Access management. If a Provider is listed that matches the URL for your cluster, then you already have a provider for your cluster. If a provider isn’t listed that matches the URL for your cluster, then you must create one.
+
+To create a provider, choose Add provider.
+
+For Provider type, select OpenID Connect.
+
+For Provider URL, enter the OIDC provider URL for your cluster.
+
+For Audience, enter sts.amazonaws.com.
+
+(Optional) Add any tags, for example a tag to identify which cluster is for this provider.
+
+Choose Add provider.
+
+## Create an IAM role for your service accounts in the console
+
+Retrieve the OIDC issuer URL from the Amazon EKS console description of your cluster . It will look something identical to: 'https://oidc.eks.us-east-1.amazonaws.com/id/xxxxxxxxxx'
+
+While creating a new IAM role, In the "Select type of trusted entity" section, choose "Web identity".
+
+In the "Choose a web identity provider" section: For Identity provider, choose the URL for your cluster. For Audience, type sts.amazonaws.com.
+
+In the "Attach Policy" section, select the policy to use for your service account, that you created in Section B above.
+
+After the role is created, choose the role in the console to open it for editing.
+
+Choose the "Trust relationships" tab, and then choose "Edit trust relationship". Edit the OIDC provider suffix and change it from :aud to :sub. Replace sts.amazonaws.com to your service account ID.
+
+ - Service Account ID is : `system:serviceaccount:<namespace>:<service-account-name>`.
+
+Update trust policy to finish.
+
+#### Configure Tags on Autoscaling Group Automate created by AWS
+
+Tags are also use in order for different Services or Component to Read and Detect some Information from each other . This is one of the case where we have Tags that auto scaler that we will deploy inside Kubernetes will require to auto Discover Autoscaling group in the AWS account . So the Cluster Autoscaler Component, which I gonna deploy inside Kubernetes Cluster, needs to communicate with auto scaling group . For this communication to happen the Cluster auto Scaler first needs to detect the auto scaling group from AWS . And it happen by using these 2 tags : k8s.io/cluster-autoscaler/eks-cluster-test, k8s.io/cluster-autoscaler/enable
+
+#### Deploy Cluster Autoscaler
+
+In that Yamlfile :
+
+ - In the command part I have the Configuration where NodeGroup auto discover is configured using these tags : --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/
+
+ - In the Service Account section add the code below . This is how I attach Auto-scaler-role to Service Account .
+
+  ```
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::565393037799:role/Auto-Scaler-Role
+  ```
+
+ - In the Deployment section add Region ENV :
+
+  ```
+  env:
+  - name : AWS_REGION
+    value : us-west-1
+  ```
+
+To check my Deployment : `kubectl get deployment -n kube-system cluster-autoscaler`
 
 
 
