@@ -77,6 +77,10 @@
   - [Create VPC](#Create-VPC)
  
   - [Create EKS Cluster and Worker Nodes](#Create-EKS-Cluster-and-Worker-Nodes)
+ 
+  - [Overview-Provsion-Terraform-in-CI/CD-Pipelines](#Overview-Provsion-Terraform-in-CI/CD-Pipelines)
+ 
+  - [Create SSH key-pair](#Create-SSH-key-pair)
 
   
 # AWS-EKS 
@@ -1263,9 +1267,21 @@ module "eks" {
 }
 ```
 
+#### Overview Provsion Terraform in CI/CD Pipelines
 
+In previous use case which built a docker Image in a pipeline and then deployed that Image on a remote Server by using Kubernetes, I will take that use case and integrate Terraform in order to provision that remote server as part of CI/CD process
 
+I will create a new `stage("provision server")` in Jenkinsfile . And this will be a part where Terraform will provison create the new Server for me so that I can deploy my application on it, which lets me automate that part of creating a remote server also using CI/CD pipeline . In order to do that I have to do a couple of thing .
 
+ - First I need to create a Key-pair an SSH key pair for the server . Whenever I create an Instance I need to assign an SSH key pair so that I can SSH into that Server .
+
+ - Second : Install Terraform inside Jenkins Container . Bcs I want to execute Terraform Command in Jenkins
+
+ - After that I will create Terraform file inside my Project so I can execute terraform apply inside the folder where I have defined Terraform config files
+
+ - **Best Practice** To include everything that my application needs, including the Infrastructure automation, application configuration automation, all of this code inside the application itself
+
+#### Create SSH key-pair
 
 
 
