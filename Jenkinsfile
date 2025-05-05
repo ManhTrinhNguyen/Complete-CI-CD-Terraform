@@ -90,7 +90,7 @@ pipeline {
                 sh 'terraform apply --auto-approve'
 
                 // Capture the EC2 public IP output from Terraform
-                def ec2_public_ip = EC2_PUBLIC_IP = sh(
+                def ec2_public_ip = sh(
                 script: "terraform output ec2_public_ip",
                 returnStdout: true 
                 ).trim() 
@@ -102,11 +102,10 @@ pipeline {
           }
         }
 
-        stage("Deploy with Kubernetes") {
+        stage("Deploy") {
           environment{
             AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
             AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
-            APP_NAME = "java-app"
           }
           steps {
             script {
