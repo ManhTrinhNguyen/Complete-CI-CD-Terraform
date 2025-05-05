@@ -110,8 +110,7 @@ pipeline {
           }
           steps {
             script {
-              echo "Deploy Java Application "
-              sh "envsubst < Kubernetes/java-app.yaml | kubectl apply -f -"
+              
             }
           }
         }

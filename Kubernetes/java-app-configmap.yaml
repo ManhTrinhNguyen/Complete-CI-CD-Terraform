@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: java-configmap
-data: 
-  database_server: "mysql-primary-0.mysql-primary-headless"
