@@ -119,8 +119,8 @@ pipeline {
               def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
 
               sshagent(['server-ssh-key']) {
-                sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
-                sh "scp server_cmds.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+                sh "scp -o StrictHostKeyChecking=no docker-compose.yaml  ${ec2_instance}:/home/ec2-user"
+                sh "scp -o StrictHostKeyChecking=no server_cmds.sh  ${ec2_instance}:/home/ec2-user"
                 sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
               }
             }
