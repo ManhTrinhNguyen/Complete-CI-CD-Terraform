@@ -10,6 +10,11 @@ ECR_URL=$7
 
 echo "${ECR_PASSWORD}" | docker login --username ${ECR_USER} --password-stdin ${ECR_URL}
 
+export IMAGE_NAME
+export MYSQL_ROOT_PASSWORD
+export DB_USER
+export DB_PWD
+
 docker-compose -f docker-compose.yaml up --detach
 
 echo "success"

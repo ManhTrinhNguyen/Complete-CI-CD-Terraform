@@ -121,7 +121,7 @@ pipeline {
               sshagent(['server-ssh-key']) {
                 sh "scp -o StrictHostKeyChecking=no docker-compose.yaml  ${ec2_instance}:/home/ec2-user"
                 sh "scp -o StrictHostKeyChecking=no server_cmds.sh  ${ec2_instance}:/home/ec2-user"
-                sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
+                sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} '${shellCMD}'"
               }
             }
           }
