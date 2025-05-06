@@ -139,7 +139,7 @@ pipeline {
                 sh 'git config --global user.name "Jenkins"'
 
                 // Set Origin access
-                sh "git remote set-url origin https://${USER}:${PWD}@github.com/ManhTrinhNguyen/AWS-EKS-exercise.git"
+                sh "git remote set-url origin https://${USER}:${PWD}@github.com/ManhTrinhNguyen/Complete-CI-CD-Terraform.git"
 
                 sh "git add ."
                 sh 'git commit -m "ci: version bump"'
