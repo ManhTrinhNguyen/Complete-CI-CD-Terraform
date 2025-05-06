@@ -111,6 +111,8 @@ pipeline {
             script {
               sh "echo ${MYSQL_ROOT_USR}"
               sh "echo ${MYSQL_ROOT_PSW}"
+              sh "echo ${MYSQL_USER_USR}"
+              sh "echo ${MYSQL_USER_PSW}"
             }
             // script {
             //   sleep(time: 90, unit: "SECONDS")
