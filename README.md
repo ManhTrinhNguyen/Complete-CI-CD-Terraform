@@ -34,39 +34,49 @@
    
     - [Ignore Jenkins Commit for Jenkins Pipeline Trigger](#Ignore-Jenkins-Commit-for-Jenkins-Pipeline-Trigger)
 
-- [Complete CI/CD with Terraform CD Stage](#Complete-CI-CD-with-Terraform-CD-Stage)
+- [Automate AWS Infrastructure](#Automate-AWS-Infrastructure)
 
-  - [Automate AWS Infrastructure](#Automate-AWS-Infrastructure)
-
-    - [Overview](#Overview)
-   
-    - [VPC and Subnet](#VPC-and-Subnet)
-   
-    - [Route Table And Internet Gateway](#Route-Table-And-Internet-Gateway)
-   
-    - [Create new Route Table](#Create-new-Route-Table)
-   
-    - [Create Internet Gateway](#Create-Internet-Gateway)
-   
-    - [Subnet Association with Route Table](#Subnet-Association-with-Route-Table)
-   
-    - [Security Group](#Security-Group)
-   
-    - [Amazon Machine Image for EC2](#Amazon-Machine-Image-for-EC2)
-   
-    - [Create EC2 Instance](#Create-EC2-Instance)
-   
-    - [Automate create SSH key Pair](#Automate-create-SSH-key-Pair)
-   
-    - [Run entrypoint script to start Docker container](#Run-entrypoint-script-to-start-Docker-container)
-   
-    - [Extract to shell script](#Extract-to-shell-script)
+  - [Overview](#Overview)
+ 
+  - [VPC and Subnet](#VPC-and-Subnet)
+ 
+  - [Route Table And Internet Gateway](#Route-Table-And-Internet-Gateway)
+ 
+  - [Create new Route Table](#Create-new-Route-Table)
+ 
+  - [Create Internet Gateway](#Create-Internet-Gateway)
+ 
+  - [Subnet Association with Route Table](#Subnet-Association-with-Route-Table)
+ 
+  - [Security Group](#Security-Group)
+ 
+  - [Amazon Machine Image for EC2](#Amazon-Machine-Image-for-EC2)
+ 
+  - [Create EC2 Instance](#Create-EC2-Instance)
+ 
+  - [Automate create SSH key Pair](#Automate-create-SSH-key-Pair)
+ 
+  - [Run entrypoint script to start Docker container](#Run-entrypoint-script-to-start-Docker-container)
+ 
+  - [Extract to shell script](#Extract-to-shell-script)
+ 
+  - [Complete CI/CD with Terraform CD Stage](#Complete-CI-CD-with-Terraform-CD-Stage)
 
   - [Overview Provsion Terraform in CI CD Pipelines](#Overview-Provsion-Terraform-in-CI-CD-Pipelines)
+ 
+    - [Create SSH key pair](#Create-SSH-key-pair)
+   
+    - [Install Terraform inside Jenkins Container](#Install-Terraform-inside-Jenkins-Container)
+   
+    - [Terraform Configuration File](#Terraform-Configuration-File)
  
   - [Provision Stage In Jenkinsfile](#Provision-Stage-In-Jenkinsfile)
  
   - [Deploy Stage in Jenkinsfile](#Deploy-Stage-in-Jenkinsfile)
+ 
+    - [Docker compose](#Docker-compose)
+   
+    - [Set IP address of Jenkins to allow Jenkin to ssh to AWS](#Set-IP-address-of-Jenkins-to-allow-Jenkin-to-ssh-to-AWS)
  
 ## Setup Continuous Deployment with Jenkins
 
@@ -453,9 +463,7 @@ I need the Plugin call `Ignore Commiter Strategy`
 
 Go to my Pipeline Configuration -> Inside the Branch Sources I see the Build Strategy (This is an option just got through the plugin) -> In this option I will put the email address of the committer that I want to Ignore . I can provide a list of email
 
-## Complete CI/CD with Terraform CD Stage
-
-### Automate AWS Infrastructure
+## Automate AWS Infrastructure
 
 #### Overview 
 
@@ -1023,6 +1031,7 @@ I will use file location `user_data = file("entry-script.sh")`
 
 In the same location I will create a `entry-script.sh` file
 
+## Complete CI/CD with Terraform CD Stage  
 
 #### Overview Provsion Terraform in CI CD Pipelines
 
@@ -1038,7 +1047,7 @@ I will create a new `stage("provision server")` in Jenkinsfile . And this will b
 
  - **Best Practice** To include everything that my application needs, including the Infrastructure automation, application configuration automation, all of this code inside the application itself
 
-#### Create SSH key-pair
+#### Create SSH key pair
 
 I will create a key pair inside AWS and then give it to Jenkins instead of creating from Terraform
 
@@ -1072,6 +1081,65 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashi
 apt update && apt install terraform
 ```
 
+#### Terraform Configuration File
+
+I have already create a Terraform for deploy EC2 instances on AWS with SG and everything above 
+
+In this case I want to deploy and execute `docker-compose`. I am copying the Docker Compose file to EC2 Instance and executing Docker Compsose command
+
+To install docker compse inside Jenkins : (https://docs.docker.com/compose/install/standalone/)
+
+In `entry-script.sh` : 
+
+```
+sudo yum update -y && sudo yum install -y docker
+sudo systemctl start docker
+sudo usermode -aG docker ec2-user
+
+# Dowload docker compose
+curl -SL "https://github.com/docker/compose/releases/download/v2.35.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+
+chmod +x /usr/local/bin/docker-compose
+```
+
+In `main.tf` I can provide Default Values for `vpc_cidr_block` and `subnet_cidr_block` so I don't have to provide Value all the time and just use default values, however I still have the option to override it
+
+```
+main.tf
+
+provider "aws" {
+ region = var.region
+}
+
+variable vpc_cidr_block {
+ defafult = "10.0.0/16"
+}
+
+variable subnet_cidr_block {
+ default = "10.0.10.0/24"
+}
+
+variable avail_zone {
+ default = "us-west-1a"
+}
+
+variable env_prefix {
+ default = "dev"
+}
+
+variable my_ip {
+ default = "my ip address"
+}
+
+variable instance_type {
+ default = "t3.medium"
+}
+
+variable region {
+ default = "us-west-1"
+}
+```
+
 #### Provision Stage In Jenkinsfile
 
 Inside `stage("provision server"){ steps { script {}}}` I will execute Terraform command
@@ -1080,7 +1148,7 @@ However Terraform configuration files are inside Terraform directory so I need e
 
 For `terraform apply` to work , Terraform and Jenkins Server basically needs to authenticate with AWS bcs I am creating resources inside AWS account, and obviously, AWS will need some kine of authentication to allow Terraform and Jenkins server to create those resources inside the AWS account in that Region
 
-In the `provider "aws" {}` I can give `access_key` and `access_secret_key`. I can hardode it in the Provider but the Best Pratice is to set them as an ENV . So basically I need to set ENV in the stage for Terraform so that AWS provider can grab those ENV and connect to the AWS . Above `steps {}` I will provide `environment {}`
+In the `provider "aws" {}` I can give `access_key` and `access_secret_key`. I can hardcode it in the Provider but the Best Practice is to set them as an ENV . So basically I need to set ENV in the stage for Terraform so that AWS provider can grab those ENV and connect to the AWS . Above `steps {}` I will provide `environment {}`
 
 Let's say I want to set the environment to test. By default I have defined it to be `dev` . However from CI/CD pipeline I want to define which environment I am deploying to . Let's say this CI/CD Pipeline is for `test` environment . To override or set a value of a variable inside Terraform Configuration from Jenkinfile is using `TF_VAR_name` . Using `TF_VAR_name` I can override and set all the rest of variables as well
 
@@ -1107,7 +1175,7 @@ stage("Provision Server"){
 
 Bcs I create provisoning Server from Terraform I don't know what IP Address is going to be here, I need the right Public IP once Terraform create the Instance .
 
-To reference the Attribute of Terraform resource from Jenkinsfile . And to get access to AWS instance Public IP . I can use `output {}` command in order to get a value . Right in the `stage ("provision server")` I will use `terraform output <name-of-output>` . However I need to save the result of the output command so I can use it in the next stage . I can do that by assigning the result of sh command to an `ENV` in Jenkins `EC2_PUBLIC_IP = sh "terraform output ec2_public_ip"` . However for that to work I need to add a parameter here inside the shell script execution and set `returnStdout: true` . What this does is basically it prints out the value to the standard output, so I can save it into a variable . I can also `trim()` that value if there are any spaces before or after
+To reference the Attribute of Terraform `resource` from Jenkinsfile . And to get access to AWS instance Public IP . I can use `output {}` command in order to get a value . Right in the `stage ("provision server")` I will use `terraform output <name-of-output>` . However I need to save the result of the output command so I can use it in the next stage . I can do that by assigning the result of sh command to an `ENV` in Jenkins `EC2_PUBLIC_IP = sh "terraform output ec2_public_ip"` . However for that to work I need to add a parameter here inside the shell script execution and set `returnStdout: true` . What this does is basically it prints out the value to the standard output, so I can save it into a variable . I can also `trim()` that value if there are any spaces before or after
 
 If I need othet Attribute as well I can easily define them in `output` section I can give it any value that I want and I can access them
 
@@ -1138,5 +1206,156 @@ stage("Provision Server"){
   }
 }
 ```
+
+Now In `deploy stage` I can reference IP address : `def ec2Instance = "ec2-user@${EC2_PUBLIC_IP}"`
+
+Another thing I need to consider when working with Terraform . When `stage("provision server")` execute, Terraform will create an Instance so Terraform will wait until the Instance is created until AWS basically tells Terraform the Instance is already running and Terraform Return and after the next Stage will be execute . However after EC2 Instance is created, it needs sometime to initialize . So the issue here with Terraform when `terraform apply` executed and the server gets created, this instance gets created and the server gets created, this instance gets created and after that in the initialization process, the `entry_script.sh` will be executed so all of these commands of installing docker and starting Docker Service as well as installing docker-compose will be executed in the initialization process, So it could be that when we are in the deploy stage those commands haven't completed yet andthat mean we can't execute any remote command on that server bcs it's still installing all these technologies and it is still initializing some of the stuff and this could be timing issue and my build will fail if my server isn't ready yet. It will happen the first time when my server created
+
+An easy solution to that problem is to basically just wait in the deploy Stage for a couple seconds to give a server time to initialize which will be the easiest solution . I can do `sleep(time: 90s, unit: "SECONDS")`
+
+Another thing is to add `-o StrictHostKeyChecking=no` to the `scp ...` command as well
+
+My deployment stage would look like this : 
+
+```
+stage("Deploy") {
+  steps {
+    script {
+      sleep(time: 90, unit: "SECONDS")
+      echo "Deploying the application to EC2..."
+
+      // Define password, username, rootpassword for Mysql
+
+      def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME}"
+      def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+
+      sshagent(['server-ssh-key']) {
+        sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+        sh "scp entry_script.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+        sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
+      }
+    }
+  }
+}
+```
+
+#### Docker compose 
+
+In my Deploy Stage above I have moved my `docker-compose` file to EC2 and also install `docker-compose` in the Bash Script 
+
+My Docker-Compose file look like this : 
+
+```
+version: '3.8'
+services:
+  mysql: 
+    image: ${IMAGE_NAME}
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PWD}
+  java-gradle-app:
+    image: ${IMAGE_NAME}
+    ports:
+      - 8080:8080
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PWD=${DB_PWD}
+      - DB_SERVER=mysql
+      - DB_NAME=${DB_NAME}
+```
+
+Now I want to pass those values`${}` to my `docker-compose.yaml` file . I execute everything with my `entry-script.sh` bash file therefore I will set those values in the bash file like this : 
+
+```
+#!/bin/bash
+
+IMAGE_NAME=$1
+MYSQL_ROOT_PASSWORD=$2
+DB_USER=$3
+DB_PWD=$4
+DB_SERVER=$5
+
+sudo yum update -y && sudo yum install -y docker
+sudo systemctl start docker
+sudo usermode -aG docker ec2-user
+
+# Dowload docker compose
+curl -SL "https://github.com/docker/compose/releases/download/v2.35.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+
+chmod +x /usr/local/bin/docker-compose
+```
+
+Then I execute the bash file like this : `bash entry-script.sh <image-name> <root-password> <db-user> <db-password> <db-server>` in EC2 
+
+But I want it automatically execute it via Jenkins . But also I can not hard code those password bcs it is a sensitive data . So I will set it as a Credentials in Jenkins and get it with `withCredentials()` . My deploy stage now will look like this :
+
+```
+stage("Deploy") {
+  steps {
+    script {
+      withCredentials([
+        usernamePassword(credentialsId: 'mysql_root_password', usernameVariable: 'ROOT_USER', passwordVariable: 'ROOT_PASSWORD'),
+        usernamePassword(credentialsId: 'mysql_user_password', usernameVariable: 'USER', passwordVariable: 'PASSWORD')
+      ]){ 
+        sleep(time: 90, unit: "SECONDS")
+        echo "Deploying the application to EC2..."
+
+        // Define password, username, rootpassword for Mysql
+
+        def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME} ${ROOT_PASSWORD} ${USER} ${PASSWORD}"
+        def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+
+        sshagent(['server-ssh-key']) {
+          sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+          sh "scp entry_script.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+          sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
+        }
+      } 
+    }
+  }
+}
+```
+
+#### Set IP address of Jenkins to allow Jenkin to ssh to AWS
+
+In `variable jenkins_ip { default = ""}` and I will add that to a security group resource . If the Jenkin IP is dynamic then I can have a default here and override it from `Jenkinfile` using `TF_VAR_name` . 
+
+My ssh will have allow 2 ip address to access . One is mine other one is Jenkins
+
+```
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-my-ip" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = var.my_ip
+  from_port = 22
+  ip_protocol = "TCP"
+  to_port = 22
+
+  tags = {
+    Name = "${var.env_prefix}-ingress-ssh"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-jenkins" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = var.jenkins_ip
+  from_port = 22
+  ip_protocol = "TCP"
+  to_port = 22
+
+  tags = {
+    Name = "${var.env_prefix}-ingress-ssh"
+  }
+}
+```
+
+#### Docker Login to pull Docker Image
+
+
+
+
+
 
 
