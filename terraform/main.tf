@@ -122,7 +122,7 @@ resource "aws_instance" "myapp" {
   key_name = "terraform-exercise"
 
 
-  user_data = file("entry-script.sh")
+  user_data = file("./entry_script.sh")
 
   user_data_replace_on_change = true
   tags = {

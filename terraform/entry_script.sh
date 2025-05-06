@@ -1,10 +1,5 @@
 #!/bin/bash
 
-IMAGE_NAME=$1
-MYSQL_ROOT_PASSWORD=$2
-DB_USER=$3
-DB_PWD=$4
-
 sudo yum update -y && sudo yum install -y docker
 sudo systemctl start docker
 sudo usermode -aG docker ec2-user
