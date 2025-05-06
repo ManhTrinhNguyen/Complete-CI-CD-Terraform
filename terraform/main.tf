@@ -48,9 +48,21 @@ resource "aws_security_group" "myapp-sg" {
   vpc_id = aws_vpc.myapp-vpc.id 
 }
 
-resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh" {
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-my-ip" {
   security_group_id = aws_security_group.myapp-sg.id 
   cidr_ipv4 = var.my_ip
+  from_port = 22
+  ip_protocol = "TCP"
+  to_port = 22
+
+  tags = {
+    Name = "${var.env_prefix}-ingress-ssh"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-jenkins" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = var.jenkins_ip
   from_port = 22
   ip_protocol = "TCP"
   to_port = 22
