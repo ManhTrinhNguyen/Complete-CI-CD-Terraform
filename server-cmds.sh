@@ -1,6 +1,0 @@
-#!/bin/bash
-
-IMAGE_NAME=$1
-MYSQL_ROOT_PASSWORD=$2
-DB_USER=$3
-DB_PWD=$4

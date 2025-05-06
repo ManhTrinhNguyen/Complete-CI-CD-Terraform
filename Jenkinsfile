@@ -106,29 +106,24 @@ pipeline {
           environment {
             MYSQL_ROOT = credentials('mysql_root_password')
             MYSQL_USER = credentials('mysql_user_password')
+            AWS_CRED = credentials('AWS_Credential')
           }
           steps {
             script {
-              sh "echo ${MYSQL_ROOT_USR}"
-              sh "echo ${MYSQL_ROOT_PSW}"
-              sh "echo ${MYSQL_USER_USR}"
-              sh "echo ${MYSQL_USER_PSW}"
+              sleep(time: 90, unit: "SECONDS")
+              echo "Deploying the application to EC2..."
+
+              // Define password, username, rootpassword for Mysql
+
+              def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME} ${MYSQL_ROOT_PSW} ${MYSQL_USER_USR} ${MYSQL_USER_PSW} ${AWS_CRED_USR} ${AWS_CRED_PSW} ${ECR_URL| }"
+              def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+
+              sshagent(['server-ssh-key']) {
+                sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+                sh "scp server_cmds.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+                sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
+              }
             }
-            // script {
-            //   sleep(time: 90, unit: "SECONDS")
-            //   echo "Deploying the application to EC2..."
-
-            //   // Define password, username, rootpassword for Mysql
-
-            //   def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME} ${ROOT_PASSWORD} ${USER} ${PASSWORD}"
-            //   def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
-
-            //   sshagent(['server-ssh-key']) {
-            //     sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
-            //     sh "scp entry_script.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
-            //     sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
-            //   }
-            // }
           }
         }
 
