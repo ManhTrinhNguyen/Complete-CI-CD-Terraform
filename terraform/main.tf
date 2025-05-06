@@ -119,8 +119,7 @@ resource "aws_instance" "myapp" {
 
   associate_public_ip_address = true
 
-  key_name = "terraform-exercise"
-
+  key_name = "terraform"
 
   user_data = file("./entry_script.sh")
 
