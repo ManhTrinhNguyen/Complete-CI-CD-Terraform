@@ -103,13 +103,26 @@ pipeline {
         }
 
         stage("Deploy") {
-          environment{
-            AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
-            AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
-          }
           steps {
             script {
-              
+              withCredentials([
+                usernamePassword(credentialsId: 'mysql_root_password', usernameVariable: 'ROOT_USER', passwordVariable: 'ROOT_PASSWORD'),
+                usernamePassword(credentialsId: 'mysql_user_password', usernameVariable: 'USER', passwordVariable: 'PASSWORD')
+              ]){ 
+                sleep(time: 90, unit: "SECONDS")
+                echo "Deploying the application to EC2..."
+
+                // Define password, username, rootpassword for Mysql
+
+                def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME} ${ROOT_PASSWORD} ${USER} ${PASSWORD}"
+                def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+
+                sshagent(['server-ssh-key']) {
+                  sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+                  sh "scp entry_script.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
+                  sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
+                }
+              } 
             }
           }
         }

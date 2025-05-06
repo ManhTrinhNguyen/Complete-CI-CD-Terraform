@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  mysql: 
+    image: ${IMAGE_NAME}
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=my-database
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PWD}
+  java-gradle-app:
+    image: ${IMAGE_NAME}
+    ports:
+      - 8080:8080
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PWD=${DB_PWD}
+      - DB_SERVER=mysql
+      - DB_NAME=${DB_NAME}
+  
