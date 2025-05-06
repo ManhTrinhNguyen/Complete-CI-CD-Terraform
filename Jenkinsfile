@@ -110,7 +110,7 @@ pipeline {
           }
           steps {
             script {
-              sleep(time: 90, unit: "SECONDS")
+              sleep(time: 5, unit: "SECONDS")
               echo "Deploying the application to EC2..."
 
               // Define password, username, rootpassword for Mysql
