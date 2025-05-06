@@ -115,7 +115,7 @@ pipeline {
 
               // Define password, username, rootpassword for Mysql
 
-              def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME} ${MYSQL_ROOT_PSW} ${MYSQL_USER_USR} ${MYSQL_USER_PSW} ${AWS_CRED_USR} ${AWS_CRED_PSW} ${ECR_URL}"
+              def shellCMD = "bash ./server_cmds.sh ${IMAGE_NAME} ${MYSQL_ROOT_PSW} ${MYSQL_USER_USR} ${MYSQL_USER_PSW} ${AWS_CRED_USR} ${AWS_CRED_PSW} ${ECR_URL}"
               def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
 
               sshagent(['server-ssh-key']) {
