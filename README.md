@@ -1286,7 +1286,7 @@ services:
       - DB_NAME=${DB_NAME}
 ```
 
-Now I want to pass those values`${}` to my `docker-compose.yaml` file . I execute everything with my `entry-script.sh` bash file therefore I will set those values in the bash file like this : 
+Now I want to pass those values`${}` to my `docker-compose.yaml` file . I execute everything with my `server_cmds.sh` bash file therefore I will set those values in the bash file like this : 
 
 ```
 #!/bin/bash
@@ -1336,6 +1336,8 @@ stage("Deploy") {
   }
 }
 ```
+
+Example the way `credentials('MYSQL_USER = credentials('mysql_user_password')')` is after I get that credentials in the ENV Jenkin will give me 2 values in the background 1 for User, 1 for Password like this :` MYSQL_USER_USR` , `MYSQL_USER_PSW`
 
 #### Set IP address of Jenkins to allow Jenkin to ssh to AWS
 
