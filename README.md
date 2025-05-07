@@ -60,7 +60,7 @@
  
   - [Extract to shell script](#Extract-to-shell-script)
  
-  - [Complete CI/CD with Terraform CD Stage](#Complete-CI-CD-with-Terraform-CD-Stage)
+- [Complete CI/CD with Terraform CD Stage](#Complete-CI-CD-with-Terraform-CD-Stage)
 
   - [Overview Provsion Terraform in CI CD Pipelines](#Overview-Provsion-Terraform-in-CI-CD-Pipelines)
  
@@ -1050,7 +1050,7 @@ sudo curl -SL "https://github.com/docker/compose/releases/download/v2.35.0/docke
 sudo chmod +x /usr/local/bin/docker-compose
 ```
 
-## Complete CI/CD with Terraform CD Stage  
+## Complete CI CD with Terraform CD Stage  
 
 #### Overview Provsion Terraform in CI CD Pipelines
 
