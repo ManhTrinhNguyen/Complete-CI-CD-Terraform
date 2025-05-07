@@ -1031,6 +1031,23 @@ I will use file location `user_data = file("entry-script.sh")`
 
 In the same location I will create a `entry-script.sh` file
 
+My `entry-script.sh` to install Docker and Docker-compose will look like this : 
+
+```
+#!/bin/bash
+
+sudo yum update -y && sudo yum install -y docker
+
+sudo systemctl start docker
+
+sudo usermod -aG docker ec2-user
+
+# Dowload docker compose
+sudo curl -SL "https://github.com/docker/compose/releases/download/v2.35.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
 ## Complete CI/CD with Terraform CD Stage  
 
 #### Overview Provsion Terraform in CI CD Pipelines
@@ -1276,44 +1293,43 @@ IMAGE_NAME=$1
 MYSQL_ROOT_PASSWORD=$2
 DB_USER=$3
 DB_PWD=$4
-DB_SERVER=$5
 
-sudo yum update -y && sudo yum install -y docker
-sudo systemctl start docker
-sudo usermode -aG docker ec2-user
+export IMAGE_NAME
+export MYSQL_ROOT_PASSWORD
+export DB_USER
+export DB_PWD
 
-# Dowload docker compose
-curl -SL "https://github.com/docker/compose/releases/download/v2.35.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+docker-compose -f docker-compose.yaml up --detach
 
-chmod +x /usr/local/bin/docker-compose
+echo "success"
 ```
 
-Then I execute the bash file like this : `bash entry-script.sh <image-name> <root-password> <db-user> <db-password> <db-server>` in EC2 
+Then I execute the bash file like this : `bash server_cmds.sh <image-name> <root-password> <db-user> <db-password> <db-server>` in EC2 
 
-But I want it automatically execute it via Jenkins . But also I can not hard code those password bcs it is a sensitive data . So I will set it as a Credentials in Jenkins and get it with `withCredentials()` . My deploy stage now will look like this :
+But I want it automatically execute it via Jenkins . But also I can not hard code those password bcs it is a sensitive data . So I will set it as a Credentials in Jenkins and get it with `credentials()` . My deploy stage now will look like this :
 
 ```
 stage("Deploy") {
+  environment {
+    MYSQL_ROOT = credentials('mysql_root_password')
+    MYSQL_USER = credentials('mysql_user_password')
+    AWS_CRED = credentials('AWS_Credential')
+  }
   steps {
     script {
-      withCredentials([
-        usernamePassword(credentialsId: 'mysql_root_password', usernameVariable: 'ROOT_USER', passwordVariable: 'ROOT_PASSWORD'),
-        usernamePassword(credentialsId: 'mysql_user_password', usernameVariable: 'USER', passwordVariable: 'PASSWORD')
-      ]){ 
-        sleep(time: 90, unit: "SECONDS")
-        echo "Deploying the application to EC2..."
+      sleep(time: 90, unit: "SECONDS")
+      echo "Deploying the application to EC2..."
 
-        // Define password, username, rootpassword for Mysql
+      // Define password, username, rootpassword for Mysql
 
-        def shellCMD = "bash ./server-cmds.sh ${IMAGE_NAME} ${ROOT_PASSWORD} ${USER} ${PASSWORD}"
-        def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+      def shellCMD = "bash ./server_cmds.sh ${IMAGE_NAME} ${MYSQL_ROOT_PSW} ${MYSQL_USER_USR} ${MYSQL_USER_PSW} ${AWS_CRED_USR} ${AWS_CRED_PSW} ${ECR_URL}"
+      def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
 
-        sshagent(['server-ssh-key']) {
-          sh "scp docker-compose.yaml -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
-          sh "scp entry_script.sh -o StrictHostKeyChecking=no ${ec2_instance}:/home/ec2-user"
-          sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} ${shellCMD}"
-        }
-      } 
+      sshagent(['server-ssh-key']) {
+        sh "scp -o StrictHostKeyChecking=no docker-compose.yaml  ${ec2_instance}:/home/ec2-user"
+        sh "scp -o StrictHostKeyChecking=no server_cmds.sh  ${ec2_instance}:/home/ec2-user"
+        sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} '${shellCMD}'"
+      }
     }
   }
 }
@@ -1352,6 +1368,38 @@ resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-jenkins" {
 ```
 
 #### Docker Login to pull Docker Image
+
+The problem here is when I pull Image from Private repository I first have to do docker Login so that the Server we are trying to pull that image to authenticate with the Private Repository bcs it is secured
+
+Docker login take `username` and `password` . Now the difference here is that `docker login` in build image stage get execute on Jenkin Server so Jenkin itself can authenticate with ECR private Repository to push an image bcs image is on the Jenkins server itself . But in deploy stage I want to do docker login from EC2 Server 
+
+I need `ECR_URL`, `ECR_USER` and `ECR_PASSWORD` in order to login to ECR . So pass those value into a bash script then I will execute that script to login into ECR in my EC2 Server
+
+So in my `server_cmds.sh` : 
+
+```
+#!/bin/bash
+
+IMAGE_NAME=$1
+MYSQL_ROOT_PASSWORD=$2
+DB_USER=$3
+DB_PWD=$4
+ECR_USER=$5
+ECR_PASSWORD=$6
+ECR_URL=$7
+
+echo "${ECR_PASSWORD}" | docker login --username ${ECR_USER} --password-stdin ${ECR_URL}
+
+export IMAGE_NAME
+export MYSQL_ROOT_PASSWORD
+export DB_USER
+export DB_PWD
+
+docker-compose -f docker-compose.yaml up --detach
+
+echo "success"
+```
+
 
 
 
