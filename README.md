@@ -79,7 +79,14 @@
     - [Set IP address of Jenkins to allow Jenkin to ssh to AWS](#Set-IP-address-of-Jenkins-to-allow-Jenkin-to-ssh-to-AWS)
    
     - [Docker Login to pull Docker Image](#Docker-Login-to-pull-Docker-Image)
- 
+
+ - [Remote State](#Remote-State)
+
+   - [Configure Remote State](#Configure-Remote-State)
+  
+   - [Execute Jenkins Pipeline](#Execute-Jenkins-Pipeline)
+
+   
 ## Setup Continuous Deployment with Jenkins
 
 #### Create Ubuntu Server on DigitalOcean 
@@ -1337,7 +1344,7 @@ stage("Deploy") {
 }
 ```
 
-Example the way `credentials('MYSQL_USER = credentials('mysql_user_password')')` is after I get that credentials in the ENV Jenkin will give me 2 values in the background 1 for User, 1 for Password like this :` MYSQL_USER_USR` , `MYSQL_USER_PSW`
+Example the way `('MYSQL_USER = credentials('mysql_user_password')')` works is after I get that credentials in the ENV Jenkin will give me 2 values in the background 1 for User, 1 for Password like this :` MYSQL_USER_USR` , `MYSQL_USER_PSW`
 
 #### Set IP address of Jenkins to allow Jenkin to ssh to AWS
 
@@ -1404,6 +1411,84 @@ docker-compose -f docker-compose.yaml up --detach
 echo "success"
 ```
 
+## Remote State
+
+To share the Terraform State between different environments maybe different team members and there is actually a very simple way to do that, and it is also a **Best Practice** is to configure a remote Terraform State . So basically a remote storage where this Terraform State file will be stored .
+
+It is also good for data backup in case something happens to the Server and the State file basically gets removed so to store it in a remote place securely is actually a good way to do that
+
+#### Configure Remote State
+
+To configure a Remote Storage for Terraform State file I use `terraform {}` block in `main.tf`
+
+`terraform {}` block is for configuring metadata and information about Terraform itself
+
+`backend` is a remote backend for Terraform and one of the Remote storages for Terraform State file is `S3 bucket`  . `S3 bucket` is a storage in AWS that is mostly used for storing files
+
+`bucket` is to configure name of bucket . It needs to be globally unique
+
+`key` is a path inside my bucket that I will create and it can have a folder structure like a folder hierarchy structure
+
+`region` doesn't have to be the same region as the one that I am creating my resources in bcs it is just for storing the data
+
+```
+terraform {
+ required_version = ">= 0.12"
+ backend "s3" {
+  bucket = "myapp-tf-s3-bucket-tim"
+  key = "myapp/state.tfstate"
+  region = "us-west-1"
+ }
+}
+```
+
+With those Configuration above Terraform will create the State file inside the bucket and then it will keep updating that Terraform state file inside the bucket everytime something changes
+
+Before execute these changes make sure to `terraform destroy` current infrastructure first
+
+#### Create AWS S3 Bucket
+
+Go to AWS -> S3
+
+When I switch to S3 service the Region will become global
+
+Choose Create S3 bucket
+
+ - `Block all public access` I can't open these files in the browser which makes sense bcs I want to protect my state files and I will able to access them obviously using AWS Credentials
+
+ - `Bucket Versioning` this basically creates a versioning of the files that I am storing in the bucket so everytime a file content changes a new version is created . I basically end up with a bunch of file that, very similar to git repository, I have file that versioned bcs I have history of the changes
+
+ - **Good practice** is to enable bucket versioning for my Terraform state file bcs if something happens and the up to date latest version of my State basically get messed up or somebody accidentally messes something up in the state file, then I still can go back to the previous State
+
+ - `Default encryption` . Server-side encryption is now automatically selected as a default encryption type
+
+ - `Bucket key` can be disable
+
+#### Execute Jenkins Pipeline 
+
+Once I have S3 Bucket create and set up . I can run my Jenkins pipeline again . 
+
+Also make sure the previous Iac destroyed first
+
+After execute the pipeline I can see the S3 bucket configured in Console log 
+
+<img width="500" alt="Screenshot 2025-05-09 at 10 28 50" src="https://github.com/user-attachments/assets/178bf3f1-f778-402d-aeb2-cc7032655bc2" />
+
+Then I go back to S3 Bucket in UI I can see the folder structure that I defined created 
+
+<img width="500" alt="Screenshot 2025-05-09 at 10 30 58" src="https://github.com/user-attachments/assets/62f79958-cb1c-4fde-83c0-5cd44e15d5bd" />
+
+And Inside that folder I have `state.tfstate` file . This file included the current state my infrastructure 
+
+<img width="400" alt="Screenshot 2025-05-09 at 10 31 55" src="https://github.com/user-attachments/assets/53577229-7216-4b37-816a-3053b60092f1" />
+
+If I already have a local State and I want to migrate it to the Remote State then I can do `terraform init` and basically just confirm that I want the migration but I have to do it manually by executing `terraform init`
+
+If I want to access my Terraform State that currently exists in my AWS infrastructure I can actually do that locally bcs the State is not stored anymore on Jenkins but rather on a Shared remote backend as long as I have AWS credentials and everything configured to access the bucket
+
+ - First in my local I will do `terraform init`
+
+ - Second I do `terraform state list` it will connect to the bucket and actually give me the list of the `resource` that have been created from the remote storage . So this way everyone can access this shared remote state of Terraform
 
 
 
