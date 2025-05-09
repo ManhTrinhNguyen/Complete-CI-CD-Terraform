@@ -88,7 +88,31 @@
   
    - [Execute Jenkins Pipeline](#Execute-Jenkins-Pipeline)
   
- - [Terraform Best Practice ](Terraform-Best-Practice)
+- [Module my Terraform project](#Module-my-Terraform-project)
+
+  - [Create module](#Create-module)
+ 
+    - [VPC module](#VPC-module)
+   
+    - [Subnet module](#Subnet-module)
+   
+    - [Security Group module](#Security-Group-module)
+   
+    - [EC2 Module](#EC2-Module)
+   
+  - [Use Modules](#Use-Modules)
+ 
+    - [For VPC Module](#For-VPC-module)
+   
+    - [For Subnet Module](#For-Subnet-Module)
+   
+    - [For Security Group Module](#For-Security-Group-Module)
+   
+    - [For EC2 Module](#For-EC2-Module)
+   
+    - [In root main.tf](#In-root-main.tf)
+  
+- [Terraform Best Practice](Terraform-Best-Practice) 
 
 
 ## Project Overview
@@ -1605,7 +1629,7 @@ Execute Terraform command to apply changes in a continuous deployment pipeline.
 So instead of team members manually updating the infrastructure by executing Terraform commands from their own computers it should happen only from an automated build this way I have a single location from which all the infrastructure changes happen and I have a more streamlined process of updating my Infrastructure 
 
 
-## Modulize Terraform 
+## Module my Terraform project
 
 In Terraform we have concept of modules to make configuration not monolithic . So I am basically break up part of my configuration into logical groups and package them together in folders . and this folders then represent modules
 
@@ -1685,7 +1709,7 @@ variable "env_prefix" {}
 
 In this I don't need any `output` so I will leave it empty
 
-#### Subnet 
+#### Subnet module
 
 I will extract all the `resources` Subnet, Route Table Association like this :
 
@@ -1719,7 +1743,7 @@ variable "env_prefix" {}
 variable "route_table_id" {}
 ```
 
-#### Security_Group 
+#### Security_Group module
 
 I will extract all the `resources` SG, Ingress Rule, Egress Rule like this :
 
@@ -1842,7 +1866,7 @@ variable "env_prefix" {}
 
 ### Use Modules 
 
-#### For VPC module 
+#### For VPC Module 
 
 The way to use that is in `root/main.tf` I use module "myapp-vpc" {} . Then I need a couple of Attribute
 
@@ -1860,7 +1884,7 @@ module "myapp-vpc" {
 
 The actual value will be in `root/terraform.tfvars`
 
-#### For Subnet module 
+#### For Subnet Module 
 
 I need to access the resources that will be created by a module in another module
 
@@ -1889,7 +1913,7 @@ Now I have a VPC object and Route_Table Object . I want to get a VPC id in my `r
   }
 ```
 
-#### For Security_Group module 
+#### For Security Group Module 
 
 The same for Subnet Module 
 
@@ -1936,7 +1960,7 @@ module "myapp-ec2" {
 }
 ```
 
-#### In root/main.tf
+#### In root main.tf
 
 My entire a code will look like this :
 
