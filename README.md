@@ -85,6 +85,8 @@
    - [Configure Remote State](#Configure-Remote-State)
   
    - [Execute Jenkins Pipeline](#Execute-Jenkins-Pipeline)
+  
+ - [Terraform Best Practice ](Terraform-Best-Practice)
 
    
 ## Setup Continuous Deployment with Jenkins
@@ -1490,7 +1492,73 @@ If I want to access my Terraform State that currently exists in my AWS infrastru
 
  - Second I do `terraform state list` it will connect to the bucket and actually give me the list of the `resource` that have been created from the remote storage . So this way everyone can access this shared remote state of Terraform
 
+## Terraform Best Practice 
 
+#### 1st Best Practice 
+
+Bcs it is a simple JSON file, I could make adjustment to the Statefile directly . However, the first best practice is only change the State file contents through terraform command `terraform apply`
+
+Do Not edit the file directly 
+
+#### 2nd Best Practice 
+
+When I first execute `terraform apply` Terraform will automatically create the state file locally . But what if I am working in a team so other team members also need to execute Terraform commands and they will need the State file for that . Every team member will need a latest State file before making their own update 
+
+Always Set up a shared remote storage for State File 
+
+In practice, remote storage backend for state file can be Amazon's S3 bucket, Terraform Cloud, Azure Storage, Google cloud storage etc .... 
+
+#### 3st Best Practice 
+
+What if 2 team members execute Terraform commands at the same time . Thing happen to the State file when I have concurrent changes is I might get a conflict or mess up my State file 
+
+To avoid changing Terraform State at the same time is Locking the State file until update fully completed then unblock it for the next command 
+
+In Practice, I will have this configured in my Storage Backend . In S3 bucket for example DynamoDB service is automatically used for State file locking
+
+!!! NOTE : Not all Service Backend supported be aware when choosing a remote Storage for State file 
+
+If supported TF will lock my state for all operating that could write state 
+
+#### 4th Best pratice 
+
+What happens if I lose my State file ? Something may happen to my remote storage location or someone may accidentally override the data or it may get corrupted . To avoid this the is to Back up State file 
+
+In practice, I can do this enabling versioning for it and many storage backends will have such a feature 
+
+This also mean that I have a nice history of state changes and I can reverse to any previouse Terraform State if I want to 
+
+#### 5th Best Practice 
+
+Now I have my State file in a Share remote location with locking enable and file versioning for backup so I have one State file for my Infrastructure . But usally I will have multiple environment like development, testing and production so which environment does this state file belong to ?
+
+Use 1 dedicated State file per environment and each State file will have its own storage backend with locking and versioning configured 
+
+#### Next 3 Best practice are about how to manage Terraform code itself and how to apply Infrastructure changes 
+
+These Practices can be grouped into a relatively new trend that emerged in the IaC which is called GitOps
+
+#### 6th Best Practice 
+
+When I am working on Terraform scripts in a Team, it is important to share the code in orther to collaborate effectively 
+
+I should host Terraform code in its own Git repository just like my Application code . This is not only beneficial for effective collaboration in a team but I also get versioning for my infrastructure code changes, So I can have history of changed for my Terraform code 
+
+#### 7th Best Practice 
+
+Who is allow to make changed to Terraform code ? 
+
+Treat Terraform code just like my application code . This mean I should have the same process of reviewing and testing the changes in my Infrastructure code as I have for my application code 
+
+This mean I should have the same process of reviweing and testing the changes in my Infrastructure code as I have for my application code with continuous intergration pipeline using merge requests to integrate code changed, this will allow my team to collaborate and produce quality infrastructure code which is tested and reviewed 
+
+#### 8th Best Pratice 
+
+I have tested and review my Iac code repository . How do I apply them to actual Infrastructure 
+
+Execute Terraform command to apply changes in a continuous deployment pipeline. 
+
+So instead of team members manually updating the infrastructure by executing Terraform commands from their own computers it should happen only from an automated build this way I have a single location from which all the infrastructure changes happen and I have a more streamlined process of updating my Infrastructure 
 
 
 
