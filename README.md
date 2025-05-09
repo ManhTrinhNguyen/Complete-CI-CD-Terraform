@@ -1605,6 +1605,439 @@ Execute Terraform command to apply changes in a continuous deployment pipeline.
 So instead of team members manually updating the infrastructure by executing Terraform commands from their own computers it should happen only from an automated build this way I have a single location from which all the infrastructure changes happen and I have a more streamlined process of updating my Infrastructure 
 
 
+## Modulize Terraform 
+
+In Terraform we have concept of modules to make configuration not monolithic . So I am basically break up part of my configuration into logical groups and package them together in folders . and this folders then represent modules
+
+Modularize my project
+
+I will create a branch for module `git checkout -b modules`
+
+Best practice: Separate Project structure . Extract everything from main to those file
+
+ - main.tf
+
+ - variable.tf
+
+ - outputs.tf
+
+ - providers.tf
+
+I don't have to link that file I don't have to reference the variable.tf and output.tf bcs Terraform knows that these files belong together and it kind of grabs everyting and link them together
+
+And I also have the providers.tf files that will hold all of the providers which I have configured already . Eventhough I have only 1 here which is our AWS provider it is Best Pratice to use providers file in the same way .
+
+#### Create module 
+
+Create folder call modules : `mkdir modules`
+
+Inside `modules` fodler I will create 4 folder : 
+
+ - `vpc` :  Include	VPC, Internet Gateway, Route Tables
+
+ - `subnet`: Include Public/private subnets, subnet associations
+
+ - `security_group`: Include All security group and ingress/egress rules
+
+ - `ec2`: Include	EC2 instances, key pairs, user data
+
+#### VPC module 
+
+I will extract all the `resources` VPC, IGW, Route Tables to the `main.tf` like this : 
+
+```
+resource "aws_vpc" "myapp-vpc" {
+  cidr_block = var.vpc_cidr_block
+
+  tags = {
+    Name: "${var.env_prefix}-vpc"
+  }
+}
+
+resource "aws_route_table" "myapp-route-table" {
+  vpc_id = aws_vpc.myapp-vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0" ## Destination . Any IP address can access to my VPC 
+    gateway_id = aws_internet_gateway.myapp-igw.id ## This is a Internet Gateway for my Route Table 
+  }
+
+  tags = {
+    Name = "${var.env_prefix}-rtb"
+  }
+}
+
+resource "aws_internet_gateway" "myapp-igw" {
+  vpc_id = aws_vpc.myapp-vpc.id
+
+  tags = {
+    Name = "${var.env_prefix}-igw"
+  }
+}
+```
+
+And set a variables in `variables.tf` like this : 
+
+```
+variable "vpc_cidr_block" {}
+variable "env_prefix" {}
+```
+
+In this I don't need any `output` so I will leave it empty
+
+#### Subnet 
+
+I will extract all the `resources` Subnet, Route Table Association like this :
+
+ - In Subnet module I don't have `vpc resource` and `route_table resource` in the same context so I set it as a `variable`
+
+```
+resource "aws_subnet" "myapp-subnet" {
+  vpc_id     = var.vpc_id
+  cidr_block = var.subnet_cidr_block
+  availability_zone = var.availability_zone
+
+  tags = {
+    Name = "${var.env_prefix}-subnet"
+  }
+}
+
+resource "aws_route_table_association" "a-rtb-subnet" {
+  route_table_id = var.route_table_id
+  subnet_id = aws_subnet.myapp-subnet.id
+}
+```
+
+
+And set variables in `variables.tf`:
+
+```
+variable "vpc_id" {}
+variable "subnet_cidr_block" {}
+variable "availability_zone" {}
+variable "env_prefix" {}
+variable "route_table_id" {}
+```
+
+#### Security_Group 
+
+I will extract all the `resources` SG, Ingress Rule, Egress Rule like this :
+
+ - In Security Group module I don't `vpc resource` in the same context so I set it as a `variable`
+
+```
+resource "aws_security_group" "myapp-sg" {
+  name = "myapp-sg"
+  description = "Allow inbound traffic and all outbound traffic"
+  vpc_id = var.vpc_id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-my-ip" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = var.my_ip
+  from_port = 22
+  ip_protocol = "TCP"
+  to_port = 22
+
+  tags = {
+    Name = "${var.env_prefix}-ingress-ssh"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-ssh-jenkins" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = var.jenkins_ip
+  from_port = 22
+  ip_protocol = "TCP"
+  to_port = 22
+
+  tags = {
+    Name = "${var.env_prefix}-ingress-ssh"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "myapp-sg-ingress-8080" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = "0.0.0.0/0"
+  from_port = 8080
+  ip_protocol = "TCP"
+  to_port = 8080
+
+  tags = {
+    Name = "${var.env_prefix}-ingress-8080"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "myapp-sg-egress" {
+  security_group_id = aws_security_group.myapp-sg.id 
+  cidr_ipv4 = "0.0.0.0/0"
+  ip_protocol = "-1"
+
+  tags = {
+    Name = "${var.env_prefix}-egress"
+  }
+}
+```
+
+And set variable in `variables.tf`
+
+```
+variable "vpc_id" {}
+variable "my_ip" {}
+variable "env_prefix" {}
+variable "jenkins_ip" {}
+```
+
+#### EC2 Module 
+
+I will extract `data aws_ami` and `resources aws_instance` like this :
+
+ - I don't have subnet in the same context so I will set it as a Variable
+
+```
+data "aws_ami" "amazon-linux-image" {
+
+  owners = ["amazon"]
+  most_recent = true 
+
+  filter {
+    name = "name"
+    values =  ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+resource "aws_instance" "myapp" {
+  ami = data.aws_ami.amazon-linux-image.id
+  instance_type = var.instance_type
+  subnet_id = aws_subnet.myapp-subnet.id 
+  vpc_security_group_ids = [aws_security_group.myapp-sg.id]
+  availability_zone = var.availability_zone
+
+  associate_public_ip_address = true
+
+  key_name = "terraform"
+
+  user_data = file("./entry_script.sh")
+
+  user_data_replace_on_change = true
+  tags = {
+    Name = "${var.env_prefix}-myapp"
+  }
+}
+```
+
+And the I will set a variable in `variable.tf`
+
+```
+variable "subnet_id" {}
+variable "instance_type" {}
+variable "availability_zone" {}
+variable "env_prefix" {}
+```
+
+### Use Modules 
+
+#### For VPC module 
+
+The way to use that is in `root/main.tf` I use module "myapp-vpc" {} . Then I need a couple of Attribute
+
+ - `source = "modules/subnet"` : Where this module actually living .
+
+I have set 2 variables in my `vpc modules` so I have to set it and reference it also as a variables in my `root/main.tf` like this 
+
+```
+module "myapp-vpc" {
+  source = "./modules/vpc"
+  vpc_cidr_block = var.vpc_cidr_block
+  env_prefix = var.env_prefix
+}
+```
+
+The actual value will be in `root/terraform.tfvars`
+
+#### For Subnet module 
+
+I need to access the resources that will be created by a module in another module
+
+The first thing I need to do is `output` the VPC Object so that it can be used by other Modules the way I do that is in `modules/vpc/output.tf` . And I also need a rout_table_id from vpc module for route_table_association `resource`
+
+```
+output "vpc_object" {
+  value = aws_vpc.myapp-vpc
+}
+
+output "rtb_object" {
+  value = aws_route_table.myapp-route-table
+}
+```
+
+Now I have a VPC object and Route_Table Object . I want to get a VPC id in my `root/main.tf` for my Subnet module I will do `vpc_id = module.myapp-vpc.vpc_object.id` and `route_table_id = module.myapp-vpc.rtb_object.id`
+
+```
+  module "myapp-subnet" {
+  source = "./modules/subnet"
+  vpc_id = module.myapp-vpc.vpc_object.id
+  availability_zone = var.availability_zone
+  subnet_cidr_block = var.subnet_cidr_block
+  env_prefix = var.env_prefix
+  route_table_id = module.myapp-vpc.rtb_object.id
+  }
+```
+
+#### For Security_Group module 
+
+The same for Subnet Module 
+
+```
+module "myapp_security_group" {
+  source = "./modules/security_group"
+  vpc_id = module.myapp-vpc.vpc_object.id
+  my_ip = var.my_ip
+  env_prefix = var.env_prefix
+  jenkins_ip = var.jenkins_ip
+}  
+```
+
+#### For EC2 Module 
+
+This module need `subnet_id` and `security_group_id` from Subnet module 
+
+The first thing I need to do is `output` the Subnet Object so that it can be used by other Modules the way I do that is in `modules/subnet/output.tf`
+
+```
+output "subnet_object" {
+  value = aws_subnet.myapp-subnet
+}
+```
+
+and in the `modules/security_group/output.tf`
+
+```
+output "security_group_object" {
+  value = aws_security_group.myapp-sg
+}
+```
+
+Now I have subnet object and security_group object I can reference it as `subnet_id = module.myapp-subnet.subnet_object.subnet_id` : 
+
+```
+module "myapp-ec2" {
+  source = "./modules/ec2"
+  subnet_id = module.myapp-subnet.subnet_object.id
+  env_prefix = var.env_prefix
+  availability_zone = var.availability_zone
+  instance_type = var.instance_type
+  security_group_id = module.myapp_security_group.security_group_object.id
+}
+```
+
+#### In root/main.tf
+
+My entire a code will look like this :
+
+```
+terraform {
+ required_version = ">= 0.12"
+ backend "s3" {
+  bucket = "myapp-tf-s3-bucket-tim"
+  key = "myapp/state.tfstate"
+  region = "us-west-1"
+ }
+}
+
+module "myapp-vpc" {
+  source = "./modules/vpc"
+  vpc_cidr_block = var.vpc_cidr_block
+  env_prefix = var.env_prefix
+}
+module "myapp-subnet" {
+  source = "./modules/subnet"
+  vpc_id = module.myapp-vpc.vpc_object.id
+  availability_zone = var.availability_zone
+  subnet_cidr_block = var.subnet_cidr_block
+  env_prefix = var.env_prefix
+}
+
+module "myapp_security_group" {
+  source = "./modules/security_group"
+  vpc_id = module.myapp-vpc.vpc_object.id
+  my_ip = var.my_ip
+  env_prefix = var.env_prefix
+  jenkins_ip = var.jenkins_ip
+}
+
+module "myapp-ec2" {
+  source = "./modules/ec2"
+  subnet_id = module.myapp-subnet.subnet_object.id
+  env_prefix = var.env_prefix
+  availability_zone = var.availability_zone
+  instance_type = var.instance_type
+  security_group_id = module.myapp_security_group.security_group_object.id
+}
+```
+
+With module now I have a cleaner `main.tf` file 
+
+
+This is my `variable.tf`
+
+```
+variable "vpc_cidr_block" {
+  default = "10.0.0.0/16"
+}
+
+variable "subnet_cidr_block" {
+  default = "10.0.10.0/24"
+}
+
+variable "env_prefix" {
+  default = "ci/cd"
+}
+
+variable "my_ip" {
+  default = "157.131.152.31/32"
+}
+
+variable "availability_zone" {
+  default = "us-west-1a"
+}
+
+variable "instance_type" {
+  default = "t3.large"
+}
+
+variable "region" {
+  default = "us-west-1"
+}
+
+variable "jenkins_ip" {
+  default = "209.38.152.165/32"
+}
+```
+
+Also I want to print out the `ec2_public_ip` . So I will set a ec2 object in `/modules/ec2/output.tf` : 
+
+```
+output "ec2_object" {
+  value = aws_instance.myapp
+}
+```
+
+then in my `root/output.tf`
+
+```
+output "ec2_public_ip" {
+  value = module.myapp-ec2.ec2_object.public_ip
+}
+```
+
+
+
 
 
 
