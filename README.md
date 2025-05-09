@@ -91,7 +91,7 @@
  - [Terraform Best Practice ](Terraform-Best-Practice)
 
 
-## 📦 Project Overview
+## Project Overview
 
 This project demonstrates a **complete CI/CD pipeline** using **Terraform**, **Jenkins**, **Docker**, and **AWS**. It automates the provisioning of cloud infrastructure and deploys a Java application using industry-standard DevOps practices.
 
