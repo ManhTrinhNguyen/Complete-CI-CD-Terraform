@@ -76,8 +76,7 @@ pipeline {
           }
         }
 
-
-        stage("Provision Server"){
+        stage("Destroy Iac"){
           environment{
             AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
             AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
@@ -88,45 +87,63 @@ pipeline {
             script {
               dir('terraform') {
                 sh 'terraform init'
-                sh 'terraform apply --auto-approve'
-
-                // Capture the EC2 public IP output from Terraform
-                def ec2_public_ip = sh(
-                script: "terraform output ec2_public_ip",
-                returnStdout: true 
-                ).trim() 
-
-                // Set environment variable for use in later stages if needed
-                env.EC2_PUBLIC_IP = ec2_public_ip
+                sh 'terraform destroy --auto-approve'
               }
             }
           }
         }
 
-        stage("Deploy") {
-          environment {
-            MYSQL_ROOT = credentials('mysql_root_password')
-            MYSQL_USER = credentials('mysql_user_password')
-            AWS_CRED = credentials('AWS_Credential')
-          }
-          steps {
-            script {
-              sleep(time: 90, unit: "SECONDS")
-              echo "Deploying the application to EC2..."
 
-              // Define password, username, rootpassword for Mysql
+        // stage("Provision Server"){
+        //   environment{
+        //     AWS_ACCESS_KEY_ID = credentials('Aws_Access_Key_Id')
+        //     AWS_SECRET_ACCESS_KEY = credentials('Aws_Secret_Access_Key')
+        //     TF_VAR_env_prefix = "test"
+        //   }
 
-              def shellCMD = "bash ./server_cmds.sh ${IMAGE_NAME} ${MYSQL_ROOT_PSW} ${MYSQL_USER_USR} ${MYSQL_USER_PSW} ${AWS_CRED_USR} ${AWS_CRED_PSW} ${ECR_URL}"
-              def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+        //   steps{
+        //     script {
+        //       dir('terraform') {
+        //         sh 'terraform init'
+        //         sh 'terraform destroy --auto-approve'
 
-              sshagent(['server-ssh-key']) {
-                sh "scp -o StrictHostKeyChecking=no docker-compose.yaml  ${ec2_instance}:/home/ec2-user"
-                sh "scp -o StrictHostKeyChecking=no server_cmds.sh  ${ec2_instance}:/home/ec2-user"
-                sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} '${shellCMD}'"
-              }
-            }
-          }
-        }
+        //         // Capture the EC2 public IP output from Terraform
+        //         def ec2_public_ip = sh(
+        //         script: "terraform output ec2_public_ip",
+        //         returnStdout: true 
+        //         ).trim() 
+
+        //         // Set environment variable for use in later stages if needed
+        //         env.EC2_PUBLIC_IP = ec2_public_ip
+        //       }
+        //     }
+        //   }
+        // }
+
+        // stage("Deploy") {
+        //   environment {
+        //     MYSQL_ROOT = credentials('mysql_root_password')
+        //     MYSQL_USER = credentials('mysql_user_password')
+        //     AWS_CRED = credentials('AWS_Credential')
+        //   }
+        //   steps {
+        //     script {
+        //       sleep(time: 90, unit: "SECONDS")
+        //       echo "Deploying the application to EC2..."
+
+        //       // Define password, username, rootpassword for Mysql
+
+        //       def shellCMD = "bash ./server_cmds.sh ${IMAGE_NAME} ${MYSQL_ROOT_PSW} ${MYSQL_USER_USR} ${MYSQL_USER_PSW} ${AWS_CRED_USR} ${AWS_CRED_PSW} ${ECR_URL}"
+        //       def ec2_instance = "ec2-user@${EC2_PUBLIC_IP}"
+
+        //       sshagent(['server-ssh-key']) {
+        //         sh "scp -o StrictHostKeyChecking=no docker-compose.yaml  ${ec2_instance}:/home/ec2-user"
+        //         sh "scp -o StrictHostKeyChecking=no server_cmds.sh  ${ec2_instance}:/home/ec2-user"
+        //         sh "ssh -o StrictHostKeyChecking=no ${ec2_instance} '${shellCMD}'"
+        //       }
+        //     }
+        //   }
+        // }
 
         stage("Commit to Git") {
           steps {
