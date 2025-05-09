@@ -11,7 +11,7 @@ variable "env_prefix" {
 }
 
 variable "my_ip" {
-  default = "71.202.102.216/32"
+  default = "157.131.152.31/32"
 }
 
 variable "availability_zone" {
