@@ -110,7 +110,7 @@
    
     - [For EC2 Module](#For-EC2-Module)
    
-    - [In root main.tf](#In-root-main.tf)
+    - [In root main.tf](#In-root-main-tf)
   
 - [Terraform Best Practice](Terraform-Best-Practice) 
 
@@ -1960,7 +1960,7 @@ module "myapp-ec2" {
 }
 ```
 
-#### In root main.tf
+#### In root main tf
 
 My entire a code will look like this :
 
