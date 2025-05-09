@@ -1,3 +1,5 @@
+- [Project Overview](#Project-Overview)
+
 - [Setup Continuous Deployment with Jenkins](#Setup-Continuous-Deployment-with-Jenkins)
 
   - [Create Ubuntu Server on DigitalOcean](#Create-Ubuntu-Server-on-DigitalOcean) 
@@ -88,7 +90,49 @@
   
  - [Terraform Best Practice ](Terraform-Best-Practice)
 
-   
+
+## 📦 Project Overview
+
+This project demonstrates a **complete CI/CD pipeline** using **Terraform**, **Jenkins**, **Docker**, and **AWS**. It automates the provisioning of cloud infrastructure and deploys a Java application using industry-standard DevOps practices.
+
+#### 🚀 Key Objectives
+
+- Automate application build, versioning, and deployment using Jenkins.
+- Provision AWS infrastructure (VPC, EC2, Security Groups) with Terraform.
+- Deploy Dockerized apps to EC2 via Docker Compose.
+- Use secure credentials and remote state management best practices.
+
+
+#### 🔧 Technologies & Tools Used
+
+| Category               | Tools & Services                                 |
+|------------------------|--------------------------------------------------|
+| CI/CD Pipeline         | Jenkins, Gradle, GitHub                          |
+| Infrastructure as Code | Terraform                                        |
+| Cloud Platform         | AWS (EC2, VPC, S3, ECR, IAM)                     |
+| Containerization       | Docker, Docker Compose                           |
+| Secrets Management     | Jenkins Credentials                              |
+| State Management       | S3 Backend (Remote Terraform State + Versioning) |
+| Automation             | Bash Scripting, User Data, SSH                   |
+
+
+#### Key Features
+
+✅ Multi-branch Jenkins pipeline integration
+
+✅ Dynamic versioning with Gradle
+
+✅ Docker image build & push to AWS ECR
+
+✅ Secure secret injection with Jenkins credentials
+
+✅ EC2 provisioning and app deployment via Terraform
+
+✅ Remote Terraform state stored in S3 with versioning
+
+✅ Full lifecycle automation from Git push to deployment
+
+
 ## Setup Continuous Deployment with Jenkins
 
 #### Create Ubuntu Server on DigitalOcean 
