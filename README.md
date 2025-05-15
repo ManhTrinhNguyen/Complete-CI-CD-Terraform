@@ -1495,6 +1495,8 @@ To configure a Remote Storage for Terraform State file I use `terraform {}` bloc
 
 `backend` is a remote backend for Terraform and one of the Remote storages for Terraform State file is `S3 bucket`  . `S3 bucket` is a storage in AWS that is mostly used for storing files
 
+A `backend` in Terraform determines **how and where the Terraform state is stored.**
+
 `bucket` is to configure name of bucket . It needs to be globally unique
 
 `key` is a path inside my bucket that I will create and it can have a folder structure like a folder hierarchy structure
